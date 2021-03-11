@@ -1,4 +1,7 @@
 <template>
+  <transition appear name="fade">
+    <alert v-if="errorTickers" type="red" :text="errorTickers" />
+  </transition>
   <div class="container mx-auto flex flex-col items-center bg-gray-100 p-4">
     <div class="container">
       <div class="w-full my-4"></div>
@@ -21,6 +24,18 @@
             </div>
           </div>
         </div>
+
+        <template v-if="searchedTickers">
+          <div class="w-full flex flex-wrap">
+            <ticker-button
+              v-for="(searchedTicker, idx) in searchedTickers"
+              :key="idx"
+              :caption="searchedTicker"
+              @click="addFromSearched(searchedTicker)"
+            />
+          </div>
+        </template>
+
         <button
           @click="add"
           type="button"
@@ -164,11 +179,20 @@
 // [x] График сломан если везде одинаковые значения
 // [x] При удалении тикера остается выбор
 
-import { subscribeToTicker, unsubscribeFromTicker } from "./api";
+import {
+  subscribeToTicker,
+  unsubscribeFromTicker,
+  getAllAvailableTickers
+} from "./api";
+import Alert from "./components/UI/Alert";
+import TickerButton from "./components/TickersUI/TickerButton";
 
 export default {
   name: "App",
-
+  components: {
+    Alert,
+    TickerButton
+  },
   data() {
     return {
       ticker: "",
@@ -176,6 +200,9 @@ export default {
 
       tickers: [],
       selectedTicker: null,
+      availableTickers: [],
+      searchedTickers: [],
+      errorTickers: "",
 
       graph: [],
 
@@ -183,7 +210,7 @@ export default {
     };
   },
 
-  created() {
+  async created() {
     const windowData = Object.fromEntries(
       new URL(window.location).searchParams.entries()
     );
@@ -196,14 +223,7 @@ export default {
       }
     });
 
-    // if (windowData.filter) {
-    //   this.filter = windowData.filter;
-    // }
-
-    // if (windowData.page) {
-    //   this.page = windowData.page;
-    // }
-
+    this.availableTickers = await getAllAvailableTickers();
     const tickersData = localStorage.getItem("cryptonomicon-list");
 
     if (tickersData) {
@@ -278,19 +298,41 @@ export default {
       }
       return price > 1 ? price.toFixed(2) : price.toPrecision(2);
     },
-
+    tickerIsSetOrUnAvailable(newTicker) {
+      return newTicker === ""
+        ? "Please input some ticker name"
+        : !this.availableTickers.includes(newTicker)
+        ? "There is no such ticker"
+        : this.tickers.map(({ name }) => name).includes(newTicker)
+        ? "This ticker has already been added"
+        : "";
+    },
     add() {
-      const currentTicker = {
-        name: this.ticker,
-        price: "-"
-      };
+      const checkTicker = this.tickerIsSetOrUnAvailable(this.ticker);
+      if (!checkTicker) {
+        const currentTicker = {
+          name: this.ticker,
+          price: "-"
+        };
 
-      this.tickers = [...this.tickers, currentTicker];
-      this.ticker = "";
-      this.filter = "";
-      subscribeToTicker(currentTicker.name, newPrice =>
-        this.updateTicker(currentTicker.name, newPrice)
-      );
+        this.tickers = [...this.tickers, currentTicker];
+        this.ticker = "";
+        this.filter = "";
+        subscribeToTicker(currentTicker.name, newPrice =>
+          this.updateTicker(currentTicker.name, newPrice)
+        );
+      } else {
+        this.errorTickers = checkTicker;
+      }
+    },
+
+    addFromSearched(searchedTicker) {
+      console.log(searchedTicker);
+      this.ticker = searchedTicker;
+      this.add();
+      if (!this.errorTickers) {
+        this.searchedTickers = [];
+      }
     },
 
     select(ticker) {
@@ -308,6 +350,17 @@ export default {
   },
 
   watch: {
+    ticker(newValue) {
+      if (newValue !== "") {
+        this.searchedTickers = this.availableTickers.filter(
+          ticker =>
+            ticker.indexOf(newValue) !== -1 && !this.tickers.includes(ticker)
+        );
+      } else {
+        this.searchedTickers = [];
+      }
+      this.errorTickers = "";
+    },
     selectedTicker() {
       this.graph = [];
     },
@@ -334,6 +387,7 @@ export default {
         document.title,
         `${window.location.pathname}?filter=${value.filter}&page=${value.page}`
       );
+      this.errorTickers = "";
     }
   }
 };

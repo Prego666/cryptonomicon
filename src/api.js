@@ -5,6 +5,7 @@ const tickersHandlers = new Map(); // {}
 const socket = new WebSocket(
   `wss://streamer.cryptocompare.com/v2?api_key=${API_KEY}`
 );
+const apiAvailableTickers = `https://min-api.cryptocompare.com/data/blockchain/list?api_key=${API_KEY}`;
 
 const AGGREGATE_INDEX = "5";
 
@@ -60,4 +61,12 @@ export const subscribeToTicker = (ticker, cb) => {
 export const unsubscribeFromTicker = ticker => {
   tickersHandlers.delete(ticker);
   unsubscribeFromTickerOnWs(ticker);
+};
+
+export const getAllAvailableTickers = () => {
+  return fetch(apiAvailableTickers)
+    .then(res => res.json())
+    .then(({ Data: rawData }) => {
+      return Object.entries(rawData).map(([key]) => key);
+    });
 };
