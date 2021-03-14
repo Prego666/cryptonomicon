@@ -298,17 +298,21 @@ export default {
       }
       return price > 1 ? price.toFixed(2) : price.toPrecision(2);
     },
-    tickerIsSetOrUnAvailable(newTicker) {
+    tickerIsSetOrUnavailable(newTicker) {
       return newTicker === ""
         ? "Please input some ticker name"
-        : !this.availableTickers.includes(newTicker)
+        : !this.availableTickers
+            .map(availableTicker => availableTicker.toLowerCase())
+            .includes(newTicker.toLowerCase())
         ? "There is no such ticker"
-        : this.tickers.map(({ name }) => name).includes(newTicker)
+        : this.tickers
+            .map(({ name }) => name.toLowerCase())
+            .includes(newTicker.toLowerCase())
         ? "This ticker has already been added"
         : "";
     },
     add() {
-      const checkTicker = this.tickerIsSetOrUnAvailable(this.ticker);
+      const checkTicker = this.tickerIsSetOrUnavailable(this.ticker);
       if (!checkTicker) {
         const currentTicker = {
           name: this.ticker,
@@ -352,9 +356,12 @@ export default {
   watch: {
     ticker(newValue) {
       if (newValue !== "") {
+        const tickersNames = this.tickers.map(({ name }) => name.toLowerCase());
+
         this.searchedTickers = this.availableTickers.filter(
           ticker =>
-            ticker.indexOf(newValue) !== -1 && !this.tickers.includes(ticker)
+            ticker.toLowerCase().indexOf(newValue.toLowerCase()) !== -1 &&
+            !tickersNames.includes(ticker.toLowerCase())
         );
       } else {
         this.searchedTickers = [];
@@ -365,9 +372,9 @@ export default {
       this.graph = [];
     },
 
-    tickers(newValue, oldValue) {
+    tickers() {
       // Почему не сработал watch при добавлении?
-      console.log(newValue === oldValue);
+      // console.log(newValue === oldValue);
       localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
     },
 
